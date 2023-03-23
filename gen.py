@@ -108,7 +108,11 @@ class StreamModel:
                     finish_reasons[i] = "length"
                 
                 final_tokens = torch.cat((final_tokens, tokens))
-                yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
+                # TypeError: argument 'ids': 'float' object cannot be interpreted as an integer
+                # yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
+                yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
+
+
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(1))
     def _infer(self, model_fn, **kwargs):
