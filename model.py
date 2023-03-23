@@ -2,7 +2,7 @@ from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM #, LlamaTokenizer, LlamaForCausalLM 
 
 def load_model(
-    base="decapoda-research/llama-7b-hfBelleGroup/BELLE-7B-2M",
+    base="BelleGroup/BELLE-7B-2M",
     finetuned="tloen/alpaca-lora-7b",
 ):
     # tokenizer = LlamaTokenizer.from_pretrained(base)
