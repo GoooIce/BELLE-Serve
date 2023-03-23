@@ -1,15 +1,22 @@
 from peft import PeftModel
-from transformers import LlamaTokenizer, LlamaForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM #, LlamaTokenizer, LlamaForCausalLM 
 
 def load_model(
-    base="decapoda-research/llama-7b-hf",
+    base="decapoda-research/llama-7b-hfBelleGroup/BELLE-7B-2M",
     finetuned="tloen/alpaca-lora-7b",
 ):
-    tokenizer = LlamaTokenizer.from_pretrained(base)
-    tokenizer.pad_token_id = 0
-    tokenizer.padding_side = "left"
+    # tokenizer = LlamaTokenizer.from_pretrained(base)
+    # tokenizer.pad_token_id = 0
+    # tokenizer.padding_side = "left"
 
-    model = LlamaForCausalLM.from_pretrained(
+    # model = LlamaForCausalLM.from_pretrained(
+    #     base,
+    #     load_in_8bit=True,
+    #     device_map="auto",
+    # )
+    tokenizer =  AutoTokenizer.from_pretrained(base, add_eos_token=True)
+
+    model =  AutoModelForCausalLM.from_pretrained(
         base,
         load_in_8bit=True,
         device_map="auto",
