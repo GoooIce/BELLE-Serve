@@ -22,6 +22,6 @@ def load_model(
         device_map="auto",
     )
     
-    model = PeftModel.from_pretrained(model, finetuned, device_map={'': 0})
+    # model = PeftModel.from_pretrained(model, finetuned, device_map={'': 0})
     return model, tokenizer
 
