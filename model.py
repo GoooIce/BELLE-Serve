@@ -1,4 +1,4 @@
-from peft import PeftModel
+from peft import PeftModel, get_peft_model
 from transformers import AutoTokenizer, AutoModelForCausalLM #, LlamaTokenizer, LlamaForCausalLM 
 
 def load_model(
@@ -23,5 +23,5 @@ def load_model(
     )
     
     # model = PeftModel.from_pretrained(model, finetuned, device_map={'': 0})
+    # model = get_peft_model(model, {});
     return model, tokenizer
-
