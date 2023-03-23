@@ -67,7 +67,7 @@ class StreamModel:
     ):
         """Create a completion stream for the provided prompt."""
         if isinstance(prompt, str):
-            input_ids = self.tokenize(prompt, return_tensors="pt")
+            input_ids = self.tokenize(prompt)
         elif isinstance(prompt, torch.Tensor) and prompt.dim() == 1:
             input_ids = prompt
         else:
@@ -110,7 +110,7 @@ class StreamModel:
                 final_tokens = torch.cat((final_tokens, tokens))
                 # TypeError: argument 'ids': 'float' object cannot be interpreted as an integer
                 # yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
-                yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
+                yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
 
 
 
