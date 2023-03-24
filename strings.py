@@ -1,9 +1,9 @@
-TITLE = "Alpaca-LoRA Playground"
+TITLE = "BELLE Playground"
 
 ABSTRACT = """
-Thanks to [tolen](https://github.com/tloen/alpaca-lora), this simple application runs Alpaca-LoRA which is instruction fine-tuned version of [LLaMA](https://ai.facebook.com/blog/large-language-model-llama-meta-ai/) from Meta AI. Alpaca-LoRA is *Low-Rank LLaMA Instruct-Tuning* which is inspired by [Stanford Alpaca project](https://github.com/tatsu-lab/stanford_alpaca). Alpaca-LoRA is built on the same concept as Standford Alpaca project, but it was trained on a consumer GPU(RTX4090) with [transformers](https://huggingface.co/docs/transformers/index), [peft](https://github.com/huggingface/peft), and [bitsandbytes](https://github.com/TimDettmers/bitsandbytes/tree/main).
+Thanks to [BELLE](https://github.com/LianjiaTech/BELLE), this simple application runs BELLE which is instruction fine-tuned version of [LLaMA](https://ai.facebook.com/blog/large-language-model-llama-meta-ai/) from Meta AI.
+ BELLE is *LLaMA Fine-Tuning* which is inspired by [Stanford Alpaca project](https://github.com/tatsu-lab/stanford_alpaca). 
 
-I am thankful to the [Jarvislabs.ai](https://jarvislabs.ai/) who generously provided free GPU instances. 
 """
 
 BOTTOM_LINE = """
@@ -12,33 +12,32 @@ In order to process batch generation, the common parameters in LLaMA are fixed. 
 
 DEFAULT_EXAMPLES = [
     {
-        "title": "1️⃣ List all Canadian provinces in alphabetical order.",
+        "title": "1️⃣ 写一篇英文散文诗，主题是春雨，想象自己是春雨，和英国古代诗人莎士比亚交流",
         "examples": [
-            ["1", "List all Canadian provinces in alphabetical order."],
-            ["2", "Which ones are on the east side?"],
-            ["3", "What foods are famous in each province?"],
-            ["4", "What about sightseeing? or landmarks?"],
+            ["1", "写一篇英文散文诗，主题是春雨，想象自己是春雨，和英国古代诗人莎士比亚交流"],
+            ["2", "创作这首诗的作者当时是什么心理？"],
+            ["3", "把这首诗改写成中文的七言律诗"],
         ],
     },
     {
-        "title": "2️⃣ Tell me about Alpacas.",
+        "title": "2️⃣ 小明的爸爸有三个孩子，老大叫王一，老二叫王二，老三叫什么？",
         "examples": [
-            ["1", "Tell me about alpacas."],
-            ["2", "What other animals are living in the same area?"],
-            ["3", "Are they the same species?"],
-            ["4", "Write a Python program to return those species"],
+            ["1", "老三的孩子应该喊王一什么？"],
+            ["2", "王二和小明什么关系？"],
+            ["3", "王二的爸爸和小明是什么关系？"],
+            ["4", "父母都姓吴，取一些男宝宝和女宝宝的名字"],
         ],
     },
     {
-        "title": "3️⃣ Tell me about the king of France in 2019.",
+        "title": "3️⃣ 今天天气怎么样，把这句话翻译成英语",
         "examples": [
-            ["1", "Tell me about the king of France in 2019."],
+            ["1", "今天天气怎么样，把这句话翻译成英语"],
         ]
     },
     {
-        "title": "4️⃣ Write a Python program that prints the first 10 Fibonacci numbers.",
+        "title": "4️⃣ 使用python写一个二分查找的代码",
         "examples": [
-            ["1", "Write a Python program that prints the first 10 Fibonacci numbers."],
+            ["1", "使用python写一个二分查找的代码"],
             ["2", "could you explain how the code works?"]            
         ]
     }
