@@ -98,7 +98,7 @@ def run(args):
                 context_txtbox = gr.Textbox(placeholder="Surrounding information to AI", label="Enter Context")
                 hidden_txtbox = gr.Textbox(placeholder="", label="Order", visible=False)
 
-            chatbot = gr.Chatbot(elem_id='chatbot', label="Alpaca-LoRA")
+            chatbot = gr.Chatbot(elem_id='chatbot', label="BELLE")
             instruction_txtbox = gr.Textbox(placeholder="What do you want to say to AI?", label="Instruction")
             send_prompt_btn = gr.Button(value="Send Prompt")
             

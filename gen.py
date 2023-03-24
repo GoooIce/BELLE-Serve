@@ -1,4 +1,5 @@
 import copy
+from tenacity import RetryError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 import torch
@@ -63,56 +64,45 @@ class StreamModel:
         top_p=1.0,
         n=1,
         logprobs=0,
-        echo=False,
     ):
         """Create a completion stream for the provided prompt."""
-        if isinstance(prompt, str):
-            input_ids = self.tokenize(prompt)
-        elif isinstance(prompt, torch.Tensor) and prompt.dim() == 1:
-            input_ids = prompt
-        else:
-            raise TypeError("prompt must be a string or a 1-d tensor")
-
-        # Ensure arguments are non-negative.
-        min_tokens = max(min_tokens, 0)
-        max_tokens = max(max_tokens, 1)
-        n = max(n, 1)
+        input_ids = self.tokenize(prompt)
         logprobs = max(logprobs, 0)
 
-        # Keep track of the finish reason of each sequence.
-        finish_reasons = [None] * n
-
+        chunk_size = 3
+        chunk_count = 0
+        
         # Generate completion tokens.
-        final_tokens = torch.empty(0).cuda()
-        for (
-            tokens,
-            token_logprobs,
-            top_tokens,
-            top_logprobs,
-            status,
-        ) in self.generate(
-            input_ids[None, :].repeat(n, 1),
-            logprobs=logprobs,
-            min_new_tokens=min_tokens,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-        ):
-            for i in range(n):
-                # Check and update the finish status of the sequence.
-                if finish_reasons[i]:
-                    continue
-                if status[i] == 0:
-                    finish_reasons[i] = "stop"
-                elif status[i] == -1:
-                    finish_reasons[i] = "length"
-                
+        final_tokens = torch.empty(0).to(self.device)
+        
+        try:
+            for tokens in self.generate(
+                input_ids[None, :].repeat(n, 1),
+                logprobs=logprobs,
+                min_new_tokens=min_tokens,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            ):           
                 final_tokens = torch.cat((final_tokens, tokens))
-                # TypeError: argument 'ids': 'float' object cannot be interpreted as an integer
-                # yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
-                yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
 
+                if chunk_count < chunk_size:
+                    chunk_count = chunk_count + 1
+                else:
+                    chunk_count = 0
+                    yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
 
+            if chunk_count > 0:
+                yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
+
+        except RetryError as e:
+            print(e)
+            del input_ids
+            gc.collect()
+                
+        del final_tokens, input_ids
+        if self.device == "cuda": 
+            torch.cuda.empty_cache()
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(1))
     def _infer(self, model_fn, **kwargs):
@@ -121,25 +111,6 @@ class StreamModel:
         # https://github.com/TimDettmers/bitsandbytes/issues/162
         with torch.inference_mode():
             return model_fn(**kwargs)
-
-    def _sample(self, token, token_logprob, top_tokens, top_logprobs):
-        """Sample log probabilities of the most likely tokens."""
-        token = self.tokenizer.decode(token)
-        top_tokens = self.tokenizer.batch_decode(top_tokens)
-
-        # Do not use tensor operations as arguments may be of list type.
-        token_logprob = round(float(token_logprob), 8)
-        top_logprobs = [round(float(p), 8) for p in top_logprobs]
-
-        # Always include the log probability of the selected token.
-        top_logprobs = dict(zip(top_tokens, top_logprobs))
-        top_logprobs[token] = token_logprob
-
-        return {
-            "token": token,
-            "token_logprob": token_logprob,
-            "top_logprobs": top_logprobs,
-        }
 
     def _logits_processor(self, config, input_length):
         """Set up logits processor based on the generation config."""
@@ -191,7 +162,7 @@ class StreamModel:
         kwargs = config.update(**kwargs)
         kwargs["output_attentions"] = False
         kwargs["output_hidden_states"] = False
-        kwargs["use_cache"] = config.use_cache
+        kwargs["use_cache"] = True # config.use_cache
 
         # Collect special token IDs.
         pad_token_id = config.pad_token_id
@@ -261,14 +232,7 @@ class StreamModel:
             else:
                 tokens = torch.multinomial(probs, num_samples=1)
 
-            # Collect log probabilities of the selected tokens.
-            token_logprobs = torch.gather(probs, 1, tokens)
-            token_logprobs = torch.log(token_logprobs + 1e-7).squeeze(1)
             tokens = tokens.squeeze(1)
-
-            # Collect log probabilities of the most likely tokens.
-            top_logprobs, top_tokens = probs.topk(logprobs)
-            top_logprobs = torch.log(top_logprobs + 1e-7)
 
             # Finished sequences should have their next token be a padding.
             if pad_token_id is not None:
@@ -276,14 +240,6 @@ class StreamModel:
 
             # Append selected tokens to the inputs.
             input_ids = torch.cat([input_ids, tokens[:, None]], dim=-1)
-
-            # Extract past key values from model outputs.
-            if "past_key_values" in outputs:
-                kwargs["past_key_values"] = outputs.past_key_values
-            elif "mems" in outputs:
-                kwargs["past_key_values"] = outputs.mems
-            elif "past_buckets_states" in outputs:
-                kwargs["past_key_values"] = outputs.past_buckets_states
 
             # Mark sequences with eos tokens as finished.
             if eos_token_id is not None:
@@ -296,7 +252,7 @@ class StreamModel:
                 status = 0 - status
 
             # Yield predictions and status.
-            yield tokens, token_logprobs, top_tokens, top_logprobs, status
+            yield tokens
 
             # Stop when finished or exceeded the max length.
             if status.max() <= 0:
