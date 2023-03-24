@@ -90,10 +90,10 @@ class StreamModel:
                     chunk_count = chunk_count + 1
                 else:
                     chunk_count = 0
-                    yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
+                    yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
 
             if chunk_count > 0:
-                yield self.tokenizer.decode(final_tokens, skip_special_tokens=True)
+                yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
 
         except RetryError as e:
             print(e)
