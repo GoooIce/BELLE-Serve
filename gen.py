@@ -91,6 +91,7 @@ class StreamModel:
                 else:
                     chunk_count = 0
                     yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
+                    final_tokens = torch.tensor([], dtype=torch.int64)
 
             if chunk_count > 0:
                 yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
