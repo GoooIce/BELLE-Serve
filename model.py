@@ -19,17 +19,17 @@ def load_model(
     # )
     tokenizer =  AutoTokenizer.from_pretrained(base, add_eos_token=True)
 
-    # device_map = {
-    #     "transformer.word_embeddings": 0,
-    #     "transformer.word_embeddings_layernorm": 0,
-    #     "lm_head": "cpu",
-    #     "transformer.h": 0,
-    #     "transformer.ln_f": 0,
-    # }
+    device_map = {
+        "transformer.word_embeddings": 0,
+        "transformer.word_embeddings_layernorm": 0,
+        "lm_head": "cpu",
+        "transformer.h": 0,
+        "transformer.ln_f": 0,
+    }
     quantization_config = BitsAndBytesConfig(llm_int8_enable_fp32_cpu_offload=True)
     model =  AutoModelForCausalLM.from_pretrained(
         base,
-        device_map="auto",
+        device_map=device_map,
         quantization_config=quantization_config,
     )
     
