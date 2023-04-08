@@ -66,39 +66,13 @@ class StreamModel:
         logprobs=0,
     ):
         """Create a completion stream for the provided prompt."""
-        input_ids = self.tokenize(prompt)
-        logprobs = max(logprobs, 0)
-
-        chunk_size = 3
-        chunk_count = 0
-        
-        # Generate completion tokens.
-        final_tokens = torch.empty(0).to(self.device)
-        
-        try:
-            for tokens in self.generate(
-                input_ids[None, :].repeat(n, 1),
-                logprobs=logprobs,
-                min_new_tokens=min_tokens,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-            ):           
-                final_tokens = torch.cat((final_tokens, tokens))
-
-                if chunk_count < chunk_size:
-                    chunk_count = chunk_count + 1
-                else:
-                    chunk_count = 0
-                    yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
-
-            if chunk_count > 0:
-                yield self.tokenizer.decode(final_tokens.int(), skip_special_tokens=True)
-
-        except RetryError as e:
-            print(e)
-            del input_ids
-            gc.collect()
+        prompt = '<s>{}</s></s>'.format(prompt)
+        input_ids = self.tokenize(prompt, return_tensors="pt").input_ids.to(self.device)
+        outputs = self.model.generate(input_ids, max_new_tokens=200, do_sample=True, top_p=0.85, temperature=0.35,
+                                repetition_penalty=1.2, eos_token_id=self.tokenizer.eos_token_id)
+        rets = self.tokenizer.batch_decode(outputs)
+        output = rets[0].strip().replace(prompt, "").replace('</s>', "")
+        yield output
                 
         del final_tokens, input_ids
         if self.device == "cuda": 
