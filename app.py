@@ -17,7 +17,8 @@ def chat_stream(
     instruction,
     state_chatbot,
 ):
-    instruction_prompt = generate_prompt(instruction, state_chatbot, context)    
+    instruction_prompt = generate_prompt(instruction, state_chatbot, context)  
+    # print("instruction_prompt", instruction_prompt)  
     bot_response = model(
         instruction_prompt,
         max_tokens=256,
@@ -39,7 +40,7 @@ def chat_stream(
     yield (
         state_chatbot,
         state_chatbot,
-        gr.Textbox.update(value=tokens) if instruction == SPECIAL_STRS["summarize"] else context
+        gr.Textbox.update(value=bot_response) if instruction == SPECIAL_STRS["summarize"] else context
     )
 
 def chat_batch(
@@ -80,9 +81,9 @@ def run(args):
         finetuned=args.ft_ckpt_url
     )    
     
-    generation_config = get_generation_config(
-        args.gen_config_path
-    )
+    # generation_config = get_generation_config(
+    #     args.gen_config_path
+    # )
     
     if not batch_enabled:
         model = StreamModel(model, tokenizer)

@@ -22,7 +22,7 @@ def get_output_batch(
         input_ids = encoding["input_ids"].cuda()
         generated_id = model.generate(
             input_ids=input_ids,
-            generation_config=generation_config,
+            # generation_config=generation_config,
             max_new_tokens=256
         )
 
@@ -34,7 +34,7 @@ def get_output_batch(
         encodings = tokenizer(prompts, padding=True, return_tensors="pt").to('cuda')
         generated_ids = model.generate(
             **encodings,
-            generation_config=generation_config,
+            # generation_config=generation_config,
             max_new_tokens=256
         )
 
@@ -67,16 +67,20 @@ class StreamModel:
     ):
         """Create a completion stream for the provided prompt."""
         prompt = '<s>{}</s></s>'.format(prompt)
-        input_ids = self.tokenize(prompt, return_tensors="pt").input_ids.to(self.device)
+        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.device)
+        # input_ids = input_ids.to(self.device)
+        # print("input_ids", input_ids)
         outputs = self.model.generate(input_ids, max_new_tokens=200, do_sample=True, top_p=0.85, temperature=0.35,
-                                repetition_penalty=1.2, eos_token_id=self.tokenizer.eos_token_id)
+                             repetition_penalty=1.2, eos_token_id=self.tokenizer.eos_token_id)
         rets = self.tokenizer.batch_decode(outputs)
         output = rets[0].strip().replace(prompt, "").replace('</s>', "")
-        yield output
+        # print(output)
+        yield output + "### Response:"
+        # yield rets
                 
-        del final_tokens, input_ids
-        if self.device == "cuda": 
-            torch.cuda.empty_cache()
+        # del final_tokens, input_ids
+        # if self.device == "cuda": 
+        #     torch.cuda.empty_cache()
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(1))
     def _infer(self, model_fn, **kwargs):
@@ -118,117 +122,117 @@ class StreamModel:
 
         return processor
 
-    def tokenize(self, text):
-        """Tokenize a string into a tensor of token IDs."""
-        batch = self.tokenizer.encode(text, return_tensors="pt")
-        return batch[0].to(self.device)
+    # def tokenize(self, text):
+    #     """Tokenize a string into a tensor of token IDs."""
+    #     batch = self.tokenizer.encode(text, return_tensors="pt")
+    #     return batch[0].to(self.device)
 
-    def generate(self, input_ids, logprobs=0, **kwargs):
-        """Generate a stream of predicted tokens using the language model."""
+    # def generate(self, input_ids, logprobs=0, **kwargs):
+    #     """Generate a stream of predicted tokens using the language model."""
 
-        # Store the original batch size and input length.
-        batch_size = input_ids.shape[0]
-        input_length = input_ids.shape[-1]
+    #     # Store the original batch size and input length.
+    #     batch_size = input_ids.shape[0]
+    #     input_length = input_ids.shape[-1]
 
-        # Separate model arguments from generation config.
-        config = self.model.generation_config
-        config = copy.deepcopy(config)
-        kwargs = config.update(**kwargs)
-        kwargs["output_attentions"] = False
-        kwargs["output_hidden_states"] = False
-        kwargs["use_cache"] = True # config.use_cache
+    #     # Separate model arguments from generation config.
+    #     config = self.model.generation_config
+    #     config = copy.deepcopy(config)
+    #     kwargs = config.update(**kwargs)
+    #     kwargs["output_attentions"] = False
+    #     kwargs["output_hidden_states"] = False
+    #     kwargs["use_cache"] = True # config.use_cache
 
-        # Collect special token IDs.
-        pad_token_id = config.pad_token_id
-        bos_token_id = config.bos_token_id
-        eos_token_id = config.eos_token_id
-        if isinstance(eos_token_id, int):
-            eos_token_id = [eos_token_id]
-        if pad_token_id is None and eos_token_id is not None:
-            pad_token_id = eos_token_id[0]
+    #     # Collect special token IDs.
+    #     pad_token_id = config.pad_token_id
+    #     bos_token_id = config.bos_token_id
+    #     eos_token_id = config.eos_token_id
+    #     if isinstance(eos_token_id, int):
+    #         eos_token_id = [eos_token_id]
+    #     if pad_token_id is None and eos_token_id is not None:
+    #         pad_token_id = eos_token_id[0]
 
-        # Generate from eos if no input is specified.
-        if input_length == 0:
-            input_ids = input_ids.new_ones((batch_size, 1)).long()
-            if eos_token_id is not None:
-                input_ids = input_ids * eos_token_id[0]
-            input_length = 1
+    #     # Generate from eos if no input is specified.
+    #     if input_length == 0:
+    #         input_ids = input_ids.new_ones((batch_size, 1)).long()
+    #         if eos_token_id is not None:
+    #             input_ids = input_ids * eos_token_id[0]
+    #         input_length = 1
 
-        # Prepare inputs for encoder-decoder models.
-        if self.model.config.is_encoder_decoder:
-            # Get outputs from the encoder.
-            encoder = self.model.get_encoder()
-            encoder_kwargs = kwargs.copy()
-            encoder_kwargs.pop("use_cache", None)
-            encoder_kwargs["input_ids"] = input_ids
-            encoder_kwargs["return_dict"] = True
-            encoder_outputs = self._infer(encoder, **encoder_kwargs)
-            kwargs["encoder_outputs"] = encoder_outputs
+    #     # Prepare inputs for encoder-decoder models.
+    #     if self.model.config.is_encoder_decoder:
+    #         # Get outputs from the encoder.
+    #         encoder = self.model.get_encoder()
+    #         encoder_kwargs = kwargs.copy()
+    #         encoder_kwargs.pop("use_cache", None)
+    #         encoder_kwargs["input_ids"] = input_ids
+    #         encoder_kwargs["return_dict"] = True
+    #         encoder_outputs = self._infer(encoder, **encoder_kwargs)
+    #         kwargs["encoder_outputs"] = encoder_outputs
 
-            # Reinitialize inputs for the decoder.
-            decoder_start_token_id = config.decoder_start_token_id
-            if decoder_start_token_id is None:
-                decoder_start_token_id = bos_token_id
-            input_ids = input_ids.new_ones((batch_size, 1))
-            input_ids = input_ids * decoder_start_token_id
-            input_length = 1
+    #         # Reinitialize inputs for the decoder.
+    #         decoder_start_token_id = config.decoder_start_token_id
+    #         if decoder_start_token_id is None:
+    #             decoder_start_token_id = bos_token_id
+    #         input_ids = input_ids.new_ones((batch_size, 1))
+    #         input_ids = input_ids * decoder_start_token_id
+    #         input_length = 1
 
-        # Set up logits processor.
-        processor = self._logits_processor(config, input_length)
+    #     # Set up logits processor.
+    #     processor = self._logits_processor(config, input_length)
 
-        # Keep track of which sequences are already finished.
-        unfinished = input_ids.new_ones(batch_size)
+    #     # Keep track of which sequences are already finished.
+    #     unfinished = input_ids.new_ones(batch_size)
 
-        # Start auto-regressive generation.
-        while True:
-            inputs = self.model.prepare_inputs_for_generation(
-                input_ids, **kwargs
-            )  # noqa: E501
-            outputs = self._infer(
-                self.model,
-                **inputs,
-                return_dict=True,
-                output_attentions=False,
-                output_hidden_states=False,
-            )
+    #     # Start auto-regressive generation.
+    #     while True:
+    #         inputs = self.model.prepare_inputs_for_generation(
+    #             input_ids, **kwargs
+    #         )  # noqa: E501
+    #         outputs = self._infer(
+    #             self.model,
+    #             **inputs,
+    #             return_dict=True,
+    #             output_attentions=False,
+    #             output_hidden_states=False,
+    #         )
 
-            # Pre-process the probability distribution of the next tokens.
-            logits = outputs.logits[:, -1, :]
-            with torch.inference_mode():
-                logits = processor(input_ids, logits)
-            probs = torch.nn.functional.softmax(logits, dim=-1)
+    #         # Pre-process the probability distribution of the next tokens.
+    #         logits = outputs.logits[:, -1, :]
+    #         with torch.inference_mode():
+    #             logits = processor(input_ids, logits)
+    #         probs = torch.nn.functional.softmax(logits, dim=-1)
 
-            # Select deterministic or stochastic decoding strategy.
-            if (config.top_p is not None and config.top_p <= 0) or (
-                config.temperature is not None and config.temperature <= 0
-            ):
-                tokens = torch.argmax(probs, dim=-1)[:, None]
-            else:
-                tokens = torch.multinomial(probs, num_samples=1)
+    #         # Select deterministic or stochastic decoding strategy.
+    #         if (config.top_p is not None and config.top_p <= 0) or (
+    #             config.temperature is not None and config.temperature <= 0
+    #         ):
+    #             tokens = torch.argmax(probs, dim=-1)[:, None]
+    #         else:
+    #             tokens = torch.multinomial(probs, num_samples=1)
 
-            tokens = tokens.squeeze(1)
+    #         tokens = tokens.squeeze(1)
 
-            # Finished sequences should have their next token be a padding.
-            if pad_token_id is not None:
-                tokens = tokens * unfinished + pad_token_id * (1 - unfinished)
+    #         # Finished sequences should have their next token be a padding.
+    #         if pad_token_id is not None:
+    #             tokens = tokens * unfinished + pad_token_id * (1 - unfinished)
 
-            # Append selected tokens to the inputs.
-            input_ids = torch.cat([input_ids, tokens[:, None]], dim=-1)
+    #         # Append selected tokens to the inputs.
+    #         input_ids = torch.cat([input_ids, tokens[:, None]], dim=-1)
 
-            # Mark sequences with eos tokens as finished.
-            if eos_token_id is not None:
-                not_eos = sum(tokens != i for i in eos_token_id)
-                unfinished = unfinished.mul(not_eos.long())
+    #         # Mark sequences with eos tokens as finished.
+    #         if eos_token_id is not None:
+    #             not_eos = sum(tokens != i for i in eos_token_id)
+    #             unfinished = unfinished.mul(not_eos.long())
 
-            # Set status to -1 if exceeded the max length.
-            status = unfinished.clone()
-            if input_ids.shape[-1] - input_length >= config.max_new_tokens:
-                status = 0 - status
+    #         # Set status to -1 if exceeded the max length.
+    #         status = unfinished.clone()
+    #         if input_ids.shape[-1] - input_length >= config.max_new_tokens:
+    #             status = 0 - status
 
-            # Yield predictions and status.
-            yield tokens
+    #         # Yield predictions and status.
+    #         yield tokens
 
-            # Stop when finished or exceeded the max length.
-            if status.max() <= 0:
-                break
+    #         # Stop when finished or exceeded the max length.
+    #         if status.max() <= 0:
+    #             break
     
